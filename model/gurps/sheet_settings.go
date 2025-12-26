@@ -155,6 +155,15 @@ func (s *SheetSettings) EnsureValidity() {
 	s.ModifiersDisplay = s.ModifiersDisplay.EnsureValid()
 	s.NotesDisplay = s.NotesDisplay.EnsureValid()
 	s.SkillLevelAdjDisplay = s.SkillLevelAdjDisplay.EnsureValid()
+	// Ensure GURPS 4E defaults for dodge calculation fields
+	// If IncludeDodgeFlatBonus is false and all other dodge fields are at defaults,
+	// it likely means these are new fields from an old character sheet, so set GURPS 4E defaults.
+	// This handles backward compatibility for character sheets created before dodge customization was added.
+	if !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge && !s.IncludePDArmor && !s.IncludePDShields {
+		// All dodge fields at zero values - likely from an old character sheet, set GURPS 4E defaults
+		s.IncludeDodgeFlatBonus = true  // GURPS 4E includes flat +3 bonus
+		// Other fields are already false, which matches GURPS 4E defaults
+	}
 }
 
 // MarshalJSONTo implements json.MarshalerTo.

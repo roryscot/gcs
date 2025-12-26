@@ -1063,24 +1063,29 @@ func (e *Entity) Dodge(enc encumbrance.Level) int {
 		dodge = e.ResolveAttributeCurrent(DodgeID)
 	} else {
 		settings := e.SheetSettings
-		// Use BasicMove or BasicSpeed based on settings
-		if settings.UseBasicMoveForDodge {
-			dodge = e.ResolveAttributeCurrent(BasicMoveID).Max(0)
+		if settings == nil {
+			// Fall back to GURPS 4E defaults if settings are nil
+			dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0) + fxp.Three
 		} else {
-			dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0)
-		}
-		// Include flat +3 bonus if enabled
-		if settings.IncludeDodgeFlatBonus {
-			dodge += fxp.Three
+			// Use BasicMove or BasicSpeed based on settings
+			if settings.UseBasicMoveForDodge {
+				dodge = e.ResolveAttributeCurrent(BasicMoveID).Max(0)
+			} else {
+				dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0)
+			}
+			// Include flat +3 bonus if enabled
+			if settings.IncludeDodgeFlatBonus {
+				dodge += fxp.Three
+			}
 		}
 	}
 	dodge += e.DodgeBonus
 	// Add PD from armor if enabled
-	if e.SheetSettings.IncludePDArmor {
+	if e.SheetSettings != nil && e.SheetSettings.IncludePDArmor {
 		dodge += e.PassiveDefenseFromArmor()
 	}
 	// Add PD from shields if enabled
-	if e.SheetSettings.IncludePDShields {
+	if e.SheetSettings != nil && e.SheetSettings.IncludePDShields {
 		dodge += e.PassiveDefenseFromShields()
 	}
 	divisor := 2 * min(CountThresholdOpMet(threshold.HalveDodge, e.Attributes), 2)
@@ -1119,48 +1124,36 @@ func (e *Entity) EncumbranceLevel(forSkills bool) encumbrance.Level {
 }
 
 // PassiveDefenseFromArmor returns the total Passive Defense from equipped armor.
-// This is a placeholder that can be enhanced when PD features are properly implemented.
+//
+// NOTE: This is currently a placeholder implementation that always returns 0.
+// The UI allows enabling PD from armor, but this feature is not yet fully implemented.
+// When PD is properly implemented as a feature type, this method should be updated
+// to calculate PD from equipped armor items.
+//
+// TODO: Implement proper PD calculation from armor when PD features are added to the system.
 func (e *Entity) PassiveDefenseFromArmor() fxp.Int {
+	// Placeholder implementation - always returns 0
+	// This method structure is in place for future PD feature implementation
 	var total fxp.Int
-	// Look for DR bonuses with "PD" specialization from armor
-	// For now, this is a placeholder - can be enhanced when PD is added as a feature type
-	for _, eqp := range e.CarriedEquipment {
-		if !eqp.ReallyEquipped() {
-			continue
-		}
-		// Check if this equipment has DR bonuses that might represent PD
-		// This is a simplified approach - can be enhanced with proper PD features
-		for _, f := range eqp.FeatureList() {
-			if drBonus, ok := f.(*DRBonus); ok {
-				// If PD is added as a feature type, check for it here
-				// For now, we'll need to add PD as a feature or use tags to identify PD
-				_ = drBonus // Placeholder
-			}
-		}
-	}
+	// TODO: When PD is implemented, iterate through e.CarriedEquipment and sum PD values
+	// from equipped armor items that have PD features
 	return total.Floor()
 }
 
 // PassiveDefenseFromShields returns the total Passive Defense from equipped shields.
-// This is a placeholder that can be enhanced when PD features are properly implemented.
+//
+// NOTE: This is currently a placeholder implementation that always returns 0.
+// The UI allows enabling PD from shields, but this feature is not yet fully implemented.
+// When PD is properly implemented as a feature type, this method should be updated
+// to calculate PD from equipped shield items.
+//
+// TODO: Implement proper PD calculation from shields when PD features are added to the system.
 func (e *Entity) PassiveDefenseFromShields() fxp.Int {
+	// Placeholder implementation - always returns 0
+	// This method structure is in place for future PD feature implementation
 	var total fxp.Int
-	// Look for DR bonuses with "PD" specialization from shields
-	// For now, this is a placeholder - can be enhanced when PD is added as a feature type
-	for _, eqp := range e.CarriedEquipment {
-		if !eqp.ReallyEquipped() {
-			continue
-		}
-		// Check if this equipment is a shield (could use tags or other identification)
-		// This is a simplified approach - can be enhanced with proper PD features
-		for _, f := range eqp.FeatureList() {
-			if drBonus, ok := f.(*DRBonus); ok {
-				// If PD is added as a feature type, check for it here
-				// For now, we'll need to add PD as a feature or use tags to identify PD
-				_ = drBonus // Placeholder
-			}
-		}
-	}
+	// TODO: When PD is implemented, iterate through e.CarriedEquipment and sum PD values
+	// from equipped shield items that have PD features
 	return total.Floor()
 }
 

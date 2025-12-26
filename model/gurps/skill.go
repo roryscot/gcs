@@ -748,7 +748,17 @@ func (s *Skill) CalculateLevel(excludes map[string]bool) Level {
 }
 
 // BaseRelativeLevelWithSettings returns the base relative skill level at 0 points, using custom settings if provided.
-// By default (UseSkillModifierAdjustments false), it adds adjustments to the defaults. If UseSkillModifierAdjustments is true (toggle checked), it uses overrides if set.
+//
+// Mode behavior:
+//   - When UseSkillModifierAdjustments is false (default): Adjustment mode - adds adjustment values to GURPS defaults
+//   - When UseSkillModifierAdjustments is true: Override mode - replaces defaults with override values if set
+//
+// Override mode logic:
+//   - For Easy: 0 means "use default" (which is 0). Non-zero values override the default.
+//     NOTE: There is an ambiguity - setting override to 0 cannot distinguish between "use default" and "override to 0".
+//     This is acceptable since Easy's default is 0, so both interpretations yield the same result.
+//   - For Average/Hard/VeryHard: 0 means "not set, use default". Values matching the default also use the default.
+//     Only values that are non-zero AND different from the default will override.
 func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSettings) fxp.Int {
 	defaultValue := diffLevel.BaseRelativeLevel()
 	if settings == nil {
@@ -760,6 +770,8 @@ func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSe
 		switch diffLevel {
 		case difficulty.Easy:
 			// For Easy, default is 0. If override is explicitly set to non-zero, use that. Otherwise use default 0.
+			// NOTE: Setting override to 0 cannot distinguish between "use default" and "override to 0", but since
+			// Easy's default is 0, both interpretations yield the same result.
 			if settings.EasySkillModifierOverride != 0 {
 				return settings.EasySkillModifierOverride
 			}
@@ -791,6 +803,9 @@ func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSe
 				return settings.VeryHardSkillModifierOverride
 			}
 			// Matches default, use default
+		default:
+			// Unknown difficulty level - fall back to default
+			return defaultValue
 		}
 		// Fall back to defaults if no override was applied
 		return defaultValue

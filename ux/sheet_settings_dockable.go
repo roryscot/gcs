@@ -29,6 +29,13 @@ import (
 
 var _ GroupedCloser = &sheetSettingsDockable{}
 
+var (
+	// SkillModifierFieldMin is the minimum value allowed for skill difficulty modifier fields
+	SkillModifierFieldMin = fxp.FromInteger(-1000)
+	// SkillModifierFieldMax is the maximum value allowed for skill difficulty modifier fields
+	SkillModifierFieldMax = fxp.FromInteger(1000)
+)
+
 // EntityPanel defines methods for a panel that can hold an entity.
 type EntityPanel interface {
 	unison.Paneler
@@ -295,120 +302,102 @@ func (d *sheetSettingsDockable) createSkillDifficultyModifiers(content *unison.P
 	// Adjustment fields
 	d.createAdjustmentFields(d.skillModifierAdjustmentPanel)
 
-	panel.AddChild(d.skillModifierOverridePanel)
-	panel.AddChild(d.skillModifierAdjustmentPanel)
-	content.AddChild(panel)
-	
-	// Set initial visibility
+	// Set initial visibility before adding panels to parent
 	d.updateSkillModifierFieldsVisibility()
+	
+	// Add the appropriate panel based on current settings
+	if s.UseSkillModifierAdjustments {
+		panel.AddChild(d.skillModifierOverridePanel)
+	} else {
+		panel.AddChild(d.skillModifierAdjustmentPanel)
+	}
+	content.AddChild(panel)
+}
+
+// skillModifierFieldConfig holds configuration for creating a skill modifier field
+type skillModifierFieldConfig struct {
+	label     string
+	tooltip   string
+	getter    func() fxp.Int
+	setter    func(fxp.Int)
+	fieldPtr  **DecimalField
+}
+
+func (d *sheetSettingsDockable) createSkillModifierField(panel *unison.Panel, config skillModifierFieldConfig) {
+	panel.AddChild(NewFieldLeadingLabel(config.label, false))
+	field := NewDecimalField(nil, "", config.label, config.getter, config.setter,
+		SkillModifierFieldMin, SkillModifierFieldMax, true, false)
+	field.Tooltip = newWrappedTooltip(config.tooltip)
+	*config.fieldPtr = field
+	panel.AddChild(field)
 }
 
 func (d *sheetSettingsDockable) createOverrideFields(panel *unison.Panel) {
-	// Easy Override
-	label := i18n.Text("Easy (E) Override")
-	tooltip := i18n.Text("Override the base relative skill level modifier for Easy skills at 0 points. Leave at 0 to use GURPS default (0, no modifier).")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.easySkillModifierOverrideField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().EasySkillModifierOverride },
-		func(value fxp.Int) {
-			d.settings().EasySkillModifierOverride = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.easySkillModifierOverrideField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.easySkillModifierOverrideField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Easy (E) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Easy skills at 0 points. Leave at 0 to use GURPS default (0, no modifier)."),
+		getter:  func() fxp.Int { return d.settings().EasySkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().EasySkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.easySkillModifierOverrideField,
+	})
 
-	// Average Override
-	label = i18n.Text("Average (A) Override")
-	tooltip = i18n.Text("Override the base relative skill level modifier for Average skills at 0 points. Leave at 0 to use GURPS default (-1).")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.averageSkillModifierOverrideField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().AverageSkillModifierOverride },
-		func(value fxp.Int) {
-			d.settings().AverageSkillModifierOverride = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.averageSkillModifierOverrideField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.averageSkillModifierOverrideField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Average (A) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Average skills at 0 points. Leave at 0 to use GURPS default (-1)."),
+		getter:  func() fxp.Int { return d.settings().AverageSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().AverageSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.averageSkillModifierOverrideField,
+	})
 
-	// Hard Override
-	label = i18n.Text("Hard (H) Override")
-	tooltip = i18n.Text("Override the base relative skill level modifier for Hard skills at 0 points. Leave at 0 to use GURPS default (-2).")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.hardSkillModifierOverrideField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().HardSkillModifierOverride },
-		func(value fxp.Int) {
-			d.settings().HardSkillModifierOverride = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.hardSkillModifierOverrideField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.hardSkillModifierOverrideField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Hard (H) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Hard skills at 0 points. Leave at 0 to use GURPS default (-2)."),
+		getter:  func() fxp.Int { return d.settings().HardSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().HardSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.hardSkillModifierOverrideField,
+	})
 
-	// Very Hard Override
-	label = i18n.Text("Very Hard (VH) Override")
-	tooltip = i18n.Text("Override the base relative skill level modifier for Very Hard and Wildcard skills at 0 points. Leave at 0 to use GURPS default (-3).")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.veryHardSkillModifierOverrideField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().VeryHardSkillModifierOverride },
-		func(value fxp.Int) {
-			d.settings().VeryHardSkillModifierOverride = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.veryHardSkillModifierOverrideField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.veryHardSkillModifierOverrideField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Very Hard (VH) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Very Hard and Wildcard skills at 0 points. Leave at 0 to use GURPS default (-3)."),
+		getter:  func() fxp.Int { return d.settings().VeryHardSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().VeryHardSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.veryHardSkillModifierOverrideField,
+	})
 }
 
 func (d *sheetSettingsDockable) createAdjustmentFields(panel *unison.Panel) {
-	// Easy Adjustment
-	label := i18n.Text("Easy (E) Adjustment")
-	tooltip := i18n.Text("Adjustment added to the GURPS default for Easy skills (default: 0). Example: +1 makes Easy skills one level better than standard.")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.easySkillModifierAdjustmentField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().EasySkillModifierAdjustment },
-		func(value fxp.Int) {
-			d.settings().EasySkillModifierAdjustment = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.easySkillModifierAdjustmentField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.easySkillModifierAdjustmentField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Easy (E) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Easy skills (default: 0). Example: +1 makes Easy skills one level better than standard."),
+		getter:  func() fxp.Int { return d.settings().EasySkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().EasySkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.easySkillModifierAdjustmentField,
+	})
 
-	// Average Adjustment
-	label = i18n.Text("Average (A) Adjustment")
-	tooltip = i18n.Text("Adjustment added to the GURPS default for Average skills (default: -1). Example: +1 makes Average skills equal to Easy.")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.averageSkillModifierAdjustmentField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().AverageSkillModifierAdjustment },
-		func(value fxp.Int) {
-			d.settings().AverageSkillModifierAdjustment = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.averageSkillModifierAdjustmentField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.averageSkillModifierAdjustmentField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Average (A) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Average skills (default: -1). Example: +1 makes Average skills equal to Easy."),
+		getter:  func() fxp.Int { return d.settings().AverageSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().AverageSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.averageSkillModifierAdjustmentField,
+	})
 
-	// Hard Adjustment
-	label = i18n.Text("Hard (H) Adjustment")
-	tooltip = i18n.Text("Adjustment added to the GURPS default for Hard skills (default: -2). Example: -1 makes Hard skills one level worse.")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.hardSkillModifierAdjustmentField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().HardSkillModifierAdjustment },
-		func(value fxp.Int) {
-			d.settings().HardSkillModifierAdjustment = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.hardSkillModifierAdjustmentField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.hardSkillModifierAdjustmentField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Hard (H) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Hard skills (default: -2). Example: -1 makes Hard skills one level worse."),
+		getter:  func() fxp.Int { return d.settings().HardSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().HardSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.hardSkillModifierAdjustmentField,
+	})
 
-	// Very Hard Adjustment
-	label = i18n.Text("Very Hard (VH) Adjustment")
-	tooltip = i18n.Text("Adjustment added to the GURPS default for Very Hard and Wildcard skills (default: -3). Example: -2 makes Very Hard skills two levels worse.")
-	panel.AddChild(NewFieldLeadingLabel(label, false))
-	d.veryHardSkillModifierAdjustmentField = NewDecimalField(nil, "", label,
-		func() fxp.Int { return d.settings().VeryHardSkillModifierAdjustment },
-		func(value fxp.Int) {
-			d.settings().VeryHardSkillModifierAdjustment = value
-			d.syncSheet(false)
-		}, -fxp.Thousand, fxp.Thousand, true, false)
-	d.veryHardSkillModifierAdjustmentField.Tooltip = newWrappedTooltip(tooltip)
-	panel.AddChild(d.veryHardSkillModifierAdjustmentField)
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Very Hard (VH) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Very Hard and Wildcard skills (default: -3). Example: -2 makes Very Hard skills two levels worse."),
+		getter:  func() fxp.Int { return d.settings().VeryHardSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().VeryHardSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.veryHardSkillModifierAdjustmentField,
+	})
 }
 
 func (d *sheetSettingsDockable) updateSkillModifierFieldsVisibility() {
