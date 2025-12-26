@@ -156,12 +156,21 @@ func (s *SheetSettings) EnsureValidity() {
 	s.NotesDisplay = s.NotesDisplay.EnsureValid()
 	s.SkillLevelAdjDisplay = s.SkillLevelAdjDisplay.EnsureValid()
 	// Ensure GURPS 4E defaults for dodge calculation fields
-	// If IncludeDodgeFlatBonus is false and all other dodge fields are at defaults,
-	// it likely means these are new fields from an old character sheet, so set GURPS 4E defaults.
 	// This handles backward compatibility for character sheets created before dodge customization was added.
-	if !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge && !s.IncludePDArmor && !s.IncludePDShields {
-		// All dodge fields at zero values - likely from an old character sheet, set GURPS 4E defaults
-		s.IncludeDodgeFlatBonus = true  // GURPS 4E includes flat +3 bonus
+	// We use a conservative heuristic: only set defaults if BOTH dodge fields AND skill modifier fields
+	// are at their zero values, which strongly indicates an old character sheet where these fields
+	// were never present in the JSON (and thus defaulted to zero values).
+	// This avoids incorrectly setting defaults if a user explicitly sets all dodge fields to false
+	// in a new character sheet (which would be very unusual anyway).
+	dodgeFieldsAtDefaults := !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge && !s.IncludePDArmor && !s.IncludePDShields
+	skillModifierFieldsAtDefaults := !s.UseSkillModifierAdjustments &&
+		s.EasySkillModifierOverride == 0 && s.AverageSkillModifierOverride == 0 &&
+		s.HardSkillModifierOverride == 0 && s.VeryHardSkillModifierOverride == 0 &&
+		s.EasySkillModifierAdjustment == 0 && s.AverageSkillModifierAdjustment == 0 &&
+		s.HardSkillModifierAdjustment == 0 && s.VeryHardSkillModifierAdjustment == 0
+	if dodgeFieldsAtDefaults && skillModifierFieldsAtDefaults {
+		// Both feature sets at zero values - very likely an old character sheet, set GURPS 4E defaults
+		s.IncludeDodgeFlatBonus = true // GURPS 4E includes flat +3 bonus
 		// Other fields are already false, which matches GURPS 4E defaults
 	}
 }
