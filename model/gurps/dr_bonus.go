@@ -88,11 +88,11 @@ func (d *DRBonus) Normalize() {
 		d.Locations[i] = loc
 	}
 	s := strings.TrimSpace(d.Specialization)
-	// Preserve "PD" specialization for Passive Defense - don't normalize it to AllID
+	// Normalize empty or "All" to AllID
 	if s == "" || strings.EqualFold(s, AllID) {
 		s = AllID
 	}
-	// If s is "PD", it won't match AllID above, so it will be preserved as-is
+	// Note: "PD" specialization is preserved as-is (it doesn't match AllID, so it won't be normalized)
 	d.Specialization = s
 }
 

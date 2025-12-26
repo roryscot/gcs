@@ -178,23 +178,16 @@ func (h *HitLocation) PD(entity *Entity, tooltip *xbytes.InsertBuffer, pdMap map
 		pdMap = h.owningTable.owningLocation.PD(entity, tooltip, pdMap)
 	}
 	if tooltip != nil && len(pdMap) != 0 {
-		keys := make([]string, 0, len(pdMap))
-		for k := range pdMap {
-			keys = append(keys, k)
+		// PD is simpler than DR - it doesn't have specializations, just a total value
+		// stored under PDSpecializationKey. Show the total PD value.
+		pdValue := pdMap[PDSpecializationKey]
+		if pdValue > 0 {
+			var buffer bytes.Buffer
+			buffer.WriteByte('\n')
+			fmt.Fprintf(&buffer, i18n.Text("\n- **PD %d**"), pdValue)
+			buffer.WriteString("\n---\n")
+			_ = tooltip.Insert(0, buffer.Bytes())
 		}
-		xstrings.SortStringsNaturalAscending(keys)
-		base := pdMap[AllID]
-		var buffer bytes.Buffer
-		buffer.WriteByte('\n')
-		for _, k := range keys {
-			value := pdMap[k]
-			if !strings.EqualFold(AllID, k) {
-				value += base
-			}
-			fmt.Fprintf(&buffer, i18n.Text("\n- **PD %d** against **%s** attacks"), value, k)
-		}
-		buffer.WriteString("\n---\n")
-		_ = tooltip.Insert(0, buffer.Bytes())
 	}
 	return pdMap
 }
@@ -206,29 +199,13 @@ func (h *HitLocation) DisplayPD(entity *Entity, tooltip *xbytes.InsertBuffer) st
 		return "0"
 	}
 	pdMap := h.PD(entity, tooltip, nil)
-	if len(pdMap) == 0 {
-		return "0"
-	}
-	// PD bonuses are stored under the "pd" key (lowercase specialization from AddPDBonusesFor).
+	// PD bonuses are stored under the PDSpecializationKey ("pd") from AddPDBonusesFor.
 	// All PD bonuses for a location are accumulated under this single key.
 	// For display, we just want the total PD value, not a ratio like DR.
-	pdKey := strings.ToLower("PD")
-	pdValue := pdMap[pdKey]
-	
-	// If "pd" key doesn't exist or is 0, check AllID as fallback
+	pdValue := pdMap[PDSpecializationKey]
 	if pdValue == 0 {
-		pdValue = pdMap[AllID]
+		return "0"
 	}
-	
-	// If still 0, sum all values in the map (shouldn't normally happen, but handle edge cases)
-	if pdValue == 0 && len(pdMap) > 0 {
-		for _, v := range pdMap {
-			if v > 0 {
-				pdValue += v
-			}
-		}
-	}
-	
 	return strconv.Itoa(pdValue)
 }
 

@@ -70,7 +70,7 @@ type SheetSettingsData struct {
 	IncludePDArmor                       bool               `json:"include_pd_armor,omitzero"`
 	IncludePDShields                     bool               `json:"include_pd_shields,omitzero"`
 	UsePassiveDefense                    bool               `json:"use_passive_defense,omitzero"` // GURPS 3e optional rule: PD applies when active defense fails (also shows PD column)
-	ShowPDColumn                         bool               `json:"show_pd_column,omitzero"`      // DEPRECATED: Always synced with UsePassiveDefense, kept for backward compatibility
+	ShowPDColumn                         bool               `json:"show_pd_column,omitzero"`      // DEPRECATED: Automatically synced with UsePassiveDefense in EnsureValidity(). Kept for backward compatibility with old character sheets.
 	DodgeOverride                        fxp.Int            `json:"dodge_override,omitzero"`
 }
 

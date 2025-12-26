@@ -858,7 +858,8 @@ func (e *Entity) AddPDBonusesFor(locationID string, tooltip *xbytes.InsertBuffer
 		}
 		for _, loc := range one.Locations {
 			if (loc == AllID && isTopLevel) || strings.EqualFold(loc, locationID) {
-				pdMap[strings.ToLower(one.Specialization)] += fxp.AsInteger[int](one.AdjustedAmount())
+				// PD bonuses are always stored under PDSpecializationKey regardless of specialization value
+				pdMap[PDSpecializationKey] += fxp.AsInteger[int](one.AdjustedAmount())
 				one.AddToTooltip(tooltip)
 				break
 			}
