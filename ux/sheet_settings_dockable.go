@@ -87,8 +87,8 @@ type sheetSettingsDockable struct {
 	veryHardSkillModifierAdjustmentField      *DecimalField
 	useBasicMoveForDodge                      *unison.CheckBox
 	includeDodgeFlatBonus                     *unison.CheckBox
-	includePDArmor                            *unison.CheckBox
-	includePDShields                          *unison.CheckBox
+	usePassiveDefense                         *unison.CheckBox
+	dodgeOverrideField                        *DecimalField
 }
 
 // ShowSheetSettings the Sheet Settings. Pass in nil to edit the defaults or a sheet to edit the sheet's.
@@ -144,6 +144,7 @@ func (d *sheetSettingsDockable) initContent(content *unison.Panel) {
 	d.createOptions(content)
 	d.createSkillDifficultyModifiers(content)
 	d.createDodgeCustomization(content)
+	d.createPassiveDefense(content)
 	d.createUnitsOfMeasurement(content)
 	d.createWhereToDisplay(content)
 	d.createPageSettings(content)
@@ -446,19 +447,55 @@ func (d *sheetSettingsDockable) createDodgeCustomization(content *unison.Panel) 
 		})
 	d.includeDodgeFlatBonus.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds a flat +3 to dodge (standard GURPS 4E). When unchecked, removes this bonus (GURPS 3E style)."))
 
-	d.includePDArmor = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from armor"),
-		s.IncludePDArmor, func() {
-			d.settings().IncludePDArmor = d.includePDArmor.State == check.On
+	// Dodge Override field
+	label := i18n.Text("Manual Dodge Value")
+	tooltip := i18n.Text("Optionally set a fixed dodge value that overrides the calculated dodge. Leave at 0 to use the calculated value based on Basic Speed/Move, modifiers, and encumbrance.")
+	wrapper := unison.NewPanel()
+	wrapper.SetLayout(&unison.FlexLayout{
+		Columns:  2,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	wrapper.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	wrapper.AddChild(NewFieldLeadingLabel(label, false))
+	d.dodgeOverrideField = NewDecimalField(nil, "", label,
+		func() fxp.Int { return d.settings().DodgeOverride },
+		func(value fxp.Int) {
+			d.settings().DodgeOverride = value
 			d.syncSheet(false)
-		})
-	d.includePDArmor.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped armor to dodge (GURPS 3E style)."))
+		}, fxp.FromInteger(0), fxp.FromInteger(100), true, false)
+	d.dodgeOverrideField.Tooltip = newWrappedTooltip(tooltip)
+	d.dodgeOverrideField.Watermark = i18n.Text("0 = use calculated")
+	d.dodgeOverrideField.SetLayoutData(&unison.FlexLayoutData{
+		HAlign: align.Fill,
+		HGrab:  true,
+	})
+	wrapper.AddChild(d.dodgeOverrideField)
+	panel.AddChild(wrapper)
 
-	d.includePDShields = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from shields"),
-		s.IncludePDShields, func() {
-			d.settings().IncludePDShields = d.includePDShields.State == check.On
-			d.syncSheet(false)
+	content.AddChild(panel)
+}
+
+func (d *sheetSettingsDockable) createPassiveDefense(content *unison.Panel) {
+	s := d.settings()
+	panel := unison.NewPanel()
+	panel.SetLayout(&unison.FlexLayout{
+		Columns:  1,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	panel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	d.createHeader(panel, i18n.Text("Passive Defense (PD) - GURPS 3e Optional Rule"), 1)
+
+	// Passive Defense (PD) as optional rule (GURPS 3e)
+	d.usePassiveDefense = d.addCheckBox(panel, i18n.Text("Use Passive Defense (PD)"),
+		s.UsePassiveDefense, func() {
+			d.settings().UsePassiveDefense = d.usePassiveDefense.State == check.On
+			// Automatically show PD column when PD is enabled
+			d.settings().ShowPDColumn = d.usePassiveDefense.State == check.On
+			d.syncSheet(true) // Full rebuild needed to show/hide PD column in body panel
 		})
-	d.includePDShields.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped shields to dodge (GURPS 3E style)."))
+	d.usePassiveDefense.Tooltip = newWrappedTooltip(i18n.Text("When enabled, PD applies when an active defense (Dodge/Parry/Block) fails. PD is added to the failed defense roll only if armor with PD covers the hit location. PD is location-based, just like DR. This is a GURPS 3e optional rule that was removed in 4e. Enabling this will also show a PD column in the body type hit location table."))
 
 	content.AddChild(panel)
 }
@@ -756,8 +793,16 @@ func (d *sheetSettingsDockable) sync() {
 	if d.useBasicMoveForDodge != nil {
 		d.useBasicMoveForDodge.State = check.FromBool(s.UseBasicMoveForDodge)
 		d.includeDodgeFlatBonus.State = check.FromBool(s.IncludeDodgeFlatBonus)
-		d.includePDArmor.State = check.FromBool(s.IncludePDArmor)
-		d.includePDShields.State = check.FromBool(s.IncludePDShields)
+	}
+	if d.usePassiveDefense != nil {
+		d.usePassiveDefense.State = check.FromBool(s.UsePassiveDefense)
+		// Sync ShowPDColumn to match UsePassiveDefense (they should always be in sync)
+		if s.ShowPDColumn != s.UsePassiveDefense {
+			s.ShowPDColumn = s.UsePassiveDefense
+		}
+	}
+	if d.dodgeOverrideField != nil {
+		d.dodgeOverrideField.Sync()
 	}
 	d.MarkForRedraw()
 }

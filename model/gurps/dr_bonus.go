@@ -52,6 +52,19 @@ func NewDRBonus() *DRBonus {
 	}
 }
 
+// NewPassiveDefenseBonus creates a new DRBonus configured for Passive Defense (PD).
+// This is a convenience function that creates a DRBonus with specialization="PD".
+func NewPassiveDefenseBonus() *DRBonus {
+	return &DRBonus{
+		DRBonusData: DRBonusData{
+			Type:           feature.PassiveDefenseBonus,
+			Locations:      []string{TorsoID},
+			Specialization: "PD",
+			LeveledAmount:  LeveledAmount{Amount: fxp.One},
+		},
+	}
+}
+
 // FeatureType implements Feature.
 func (d *DRBonus) FeatureType() feature.Type {
 	return d.Type
@@ -75,9 +88,11 @@ func (d *DRBonus) Normalize() {
 		d.Locations[i] = loc
 	}
 	s := strings.TrimSpace(d.Specialization)
+	// Preserve "PD" specialization for Passive Defense - don't normalize it to AllID
 	if s == "" || strings.EqualFold(s, AllID) {
 		s = AllID
 	}
+	// If s is "PD", it won't match AllID above, so it will be preserved as-is
 	d.Specialization = s
 }
 

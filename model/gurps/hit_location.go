@@ -162,6 +162,76 @@ func (h *HitLocation) DR(entity *Entity, tooltip *xbytes.InsertBuffer, drMap map
 	return drMap
 }
 
+// PD computes the PD (Passive Defense) coverage for this HitLocation. If 'tooltip' isn't nil, the buffer will be
+// updated with details on how the PD was calculated. If 'pdMap' isn't nil, it will be returned.
+// PD only applies if UsePassiveDefense is enabled in sheet settings (GURPS 3e optional rule).
+func (h *HitLocation) PD(entity *Entity, tooltip *xbytes.InsertBuffer, pdMap map[string]int) map[string]int {
+	if pdMap == nil {
+		pdMap = make(map[string]int)
+	}
+	// PD is an optional rule - only calculate if enabled
+	if entity.SheetSettings == nil || !entity.SheetSettings.UsePassiveDefense {
+		return pdMap
+	}
+	pdMap = entity.AddPDBonusesFor(h.LocID, tooltip, pdMap)
+	if h.owningTable != nil && h.owningTable.owningLocation != nil {
+		pdMap = h.owningTable.owningLocation.PD(entity, tooltip, pdMap)
+	}
+	if tooltip != nil && len(pdMap) != 0 {
+		keys := make([]string, 0, len(pdMap))
+		for k := range pdMap {
+			keys = append(keys, k)
+		}
+		xstrings.SortStringsNaturalAscending(keys)
+		base := pdMap[AllID]
+		var buffer bytes.Buffer
+		buffer.WriteByte('\n')
+		for _, k := range keys {
+			value := pdMap[k]
+			if !strings.EqualFold(AllID, k) {
+				value += base
+			}
+			fmt.Fprintf(&buffer, i18n.Text("\n- **PD %d** against **%s** attacks"), value, k)
+		}
+		buffer.WriteString("\n---\n")
+		_ = tooltip.Insert(0, buffer.Bytes())
+	}
+	return pdMap
+}
+
+// DisplayPD returns the PD for this location, formatted as a string.
+// Returns just the total PD value (not broken down by specialization like DR).
+func (h *HitLocation) DisplayPD(entity *Entity, tooltip *xbytes.InsertBuffer) string {
+	if entity.SheetSettings == nil || !entity.SheetSettings.UsePassiveDefense {
+		return "0"
+	}
+	pdMap := h.PD(entity, tooltip, nil)
+	if len(pdMap) == 0 {
+		return "0"
+	}
+	// PD bonuses are stored under the "pd" key (lowercase specialization from AddPDBonusesFor).
+	// All PD bonuses for a location are accumulated under this single key.
+	// For display, we just want the total PD value, not a ratio like DR.
+	pdKey := strings.ToLower("PD")
+	pdValue := pdMap[pdKey]
+	
+	// If "pd" key doesn't exist or is 0, check AllID as fallback
+	if pdValue == 0 {
+		pdValue = pdMap[AllID]
+	}
+	
+	// If still 0, sum all values in the map (shouldn't normally happen, but handle edge cases)
+	if pdValue == 0 && len(pdMap) > 0 {
+		for _, v := range pdMap {
+			if v > 0 {
+				pdValue += v
+			}
+		}
+	}
+	
+	return strconv.Itoa(pdValue)
+}
+
 // DisplayDR returns the DR for this location, formatted as a string.
 func (h *HitLocation) DisplayDR(entity *Entity, tooltip *xbytes.InsertBuffer) string {
 	drMap := h.DR(entity, tooltip, nil)

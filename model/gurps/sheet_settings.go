@@ -69,6 +69,9 @@ type SheetSettingsData struct {
 	IncludeDodgeFlatBonus                bool               `json:"include_dodge_flat_bonus,omitzero"`
 	IncludePDArmor                       bool               `json:"include_pd_armor,omitzero"`
 	IncludePDShields                     bool               `json:"include_pd_shields,omitzero"`
+	UsePassiveDefense                    bool               `json:"use_passive_defense,omitzero"` // GURPS 3e optional rule: PD applies when active defense fails (also shows PD column)
+	ShowPDColumn                         bool               `json:"show_pd_column,omitzero"`      // DEPRECATED: Always synced with UsePassiveDefense, kept for backward compatibility
+	DodgeOverride                        fxp.Int            `json:"dodge_override,omitzero"`
 }
 
 // SheetSettings holds sheet settings.
@@ -106,6 +109,7 @@ func FactorySheetSettings() *SheetSettings {
 			IncludeDodgeFlatBonus: true,
 			IncludePDArmor:        false,
 			IncludePDShields:       false,
+			UsePassiveDefense:      false, // PD is a GURPS 3e optional rule, disabled by default (automatically shows PD column when enabled)
 		},
 	}
 }
@@ -162,7 +166,9 @@ func (s *SheetSettings) EnsureValidity() {
 	// were never present in the JSON (and thus defaulted to zero values).
 	// This avoids incorrectly setting defaults if a user explicitly sets all dodge fields to false
 	// in a new character sheet (which would be very unusual anyway).
-	dodgeFieldsAtDefaults := !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge && !s.IncludePDArmor && !s.IncludePDShields
+	// NOTE: PD (Passive Defense) fields are not checked here as PD does not affect base Dodge.
+	// PD is a separate mechanic that applies during combat resolution when an active defense fails.
+	dodgeFieldsAtDefaults := !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge
 	skillModifierFieldsAtDefaults := !s.UseSkillModifierAdjustments &&
 		s.EasySkillModifierOverride == 0 && s.AverageSkillModifierOverride == 0 &&
 		s.HardSkillModifierOverride == 0 && s.VeryHardSkillModifierOverride == 0 &&
@@ -173,6 +179,8 @@ func (s *SheetSettings) EnsureValidity() {
 		s.IncludeDodgeFlatBonus = true // GURPS 4E includes flat +3 bonus
 		// Other fields are already false, which matches GURPS 4E defaults
 	}
+	// Ensure ShowPDColumn is always synced with UsePassiveDefense
+	s.ShowPDColumn = s.UsePassiveDefense
 }
 
 // MarshalJSONTo implements json.MarshalerTo.
