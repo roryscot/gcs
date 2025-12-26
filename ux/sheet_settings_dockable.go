@@ -29,6 +29,13 @@ import (
 
 var _ GroupedCloser = &sheetSettingsDockable{}
 
+var (
+	// SkillModifierFieldMin is the minimum value allowed for skill difficulty modifier fields
+	SkillModifierFieldMin = fxp.FromInteger(-1000)
+	// SkillModifierFieldMax is the maximum value allowed for skill difficulty modifier fields
+	SkillModifierFieldMax = fxp.FromInteger(1000)
+)
+
 // EntityPanel defines methods for a panel that can hold an entity.
 type EntityPanel interface {
 	unison.Paneler
@@ -67,6 +74,21 @@ type sheetSettingsDockable struct {
 	bottomMarginField                  *unison.Field
 	rightMarginField                   *unison.Field
 	blockLayoutField                   *unison.Field
+	useSkillModifierAdjustments        *unison.CheckBox
+	skillModifierOverridePanel         *unison.Panel
+	skillModifierAdjustmentPanel       *unison.Panel
+	easySkillModifierOverrideField             *DecimalField
+	averageSkillModifierOverrideField          *DecimalField
+	hardSkillModifierOverrideField             *DecimalField
+	veryHardSkillModifierOverrideField         *DecimalField
+	easySkillModifierAdjustmentField          *DecimalField
+	averageSkillModifierAdjustmentField       *DecimalField
+	hardSkillModifierAdjustmentField          *DecimalField
+	veryHardSkillModifierAdjustmentField      *DecimalField
+	useBasicMoveForDodge                      *unison.CheckBox
+	includeDodgeFlatBonus                     *unison.CheckBox
+	includePDArmor                            *unison.CheckBox
+	includePDShields                          *unison.CheckBox
 }
 
 // ShowSheetSettings the Sheet Settings. Pass in nil to edit the defaults or a sheet to edit the sheet's.
@@ -120,6 +142,8 @@ func (d *sheetSettingsDockable) initContent(content *unison.Panel) {
 	})
 	d.createDamageProgression(content)
 	d.createOptions(content)
+	d.createSkillDifficultyModifiers(content)
+	d.createDodgeCustomization(content)
 	d.createUnitsOfMeasurement(content)
 	d.createWhereToDisplay(content)
 	d.createPageSettings(content)
@@ -233,6 +257,209 @@ func (d *sheetSettingsDockable) createOptions(content *unison.Panel) {
 			d.settings().ShowIQBasedDamage = d.showIQBasedDamage.State == check.On
 			d.syncSheet(false)
 		})
+	content.AddChild(panel)
+}
+
+func (d *sheetSettingsDockable) createSkillDifficultyModifiers(content *unison.Panel) {
+	s := d.settings()
+	panel := unison.NewPanel()
+	panel.SetLayout(&unison.FlexLayout{
+		Columns:  1,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	panel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	d.createHeader(panel, i18n.Text("Skill Difficulty Modifiers"), 1)
+
+	// Toggle between Adjustment (default) and Override modes
+	d.useSkillModifierAdjustments = d.addCheckBox(panel, i18n.Text("Use overrides instead of adjustments"),
+		s.UseSkillModifierAdjustments, func() {
+			d.settings().UseSkillModifierAdjustments = d.useSkillModifierAdjustments.State == check.On
+			d.updateSkillModifierFieldsVisibility()
+			d.syncSheet(false)
+		})
+	d.useSkillModifierAdjustments.Tooltip = newWrappedTooltip(i18n.Text("When checked, values completely replace GURPS defaults. When unchecked (default), values are added to the defaults."))
+
+	// Create wrapper panels for override and adjustment fields
+	d.skillModifierOverridePanel = unison.NewPanel()
+	d.skillModifierOverridePanel.SetLayout(&unison.FlexLayout{
+		Columns:  2,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	d.skillModifierOverridePanel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	
+	d.skillModifierAdjustmentPanel = unison.NewPanel()
+	d.skillModifierAdjustmentPanel.SetLayout(&unison.FlexLayout{
+		Columns:  2,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	d.skillModifierAdjustmentPanel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+
+	// Override fields
+	d.createOverrideFields(d.skillModifierOverridePanel)
+	// Adjustment fields
+	d.createAdjustmentFields(d.skillModifierAdjustmentPanel)
+
+	// Set initial visibility before adding panels to parent
+	d.updateSkillModifierFieldsVisibility()
+	
+	// Add the appropriate panel based on current settings
+	if s.UseSkillModifierAdjustments {
+		panel.AddChild(d.skillModifierOverridePanel)
+	} else {
+		panel.AddChild(d.skillModifierAdjustmentPanel)
+	}
+	content.AddChild(panel)
+}
+
+// skillModifierFieldConfig holds configuration for creating a skill modifier field
+type skillModifierFieldConfig struct {
+	label     string
+	tooltip   string
+	getter    func() fxp.Int
+	setter    func(fxp.Int)
+	fieldPtr  **DecimalField
+}
+
+func (d *sheetSettingsDockable) createSkillModifierField(panel *unison.Panel, config skillModifierFieldConfig) {
+	panel.AddChild(NewFieldLeadingLabel(config.label, false))
+	field := NewDecimalField(nil, "", config.label, config.getter, config.setter,
+		SkillModifierFieldMin, SkillModifierFieldMax, true, false)
+	field.Tooltip = newWrappedTooltip(config.tooltip)
+	*config.fieldPtr = field
+	panel.AddChild(field)
+}
+
+func (d *sheetSettingsDockable) createOverrideFields(panel *unison.Panel) {
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Easy (E) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Easy skills at 0 points. Leave at 0 to use GURPS default (0, no modifier)."),
+		getter:  func() fxp.Int { return d.settings().EasySkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().EasySkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.easySkillModifierOverrideField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Average (A) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Average skills at 0 points. Leave at 0 to use GURPS default (-1)."),
+		getter:  func() fxp.Int { return d.settings().AverageSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().AverageSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.averageSkillModifierOverrideField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Hard (H) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Hard skills at 0 points. Leave at 0 to use GURPS default (-2)."),
+		getter:  func() fxp.Int { return d.settings().HardSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().HardSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.hardSkillModifierOverrideField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Very Hard (VH) Override"),
+		tooltip: i18n.Text("Override the base relative skill level modifier for Very Hard and Wildcard skills at 0 points. Leave at 0 to use GURPS default (-3)."),
+		getter:  func() fxp.Int { return d.settings().VeryHardSkillModifierOverride },
+		setter:  func(value fxp.Int) { d.settings().VeryHardSkillModifierOverride = value; d.syncSheet(false) },
+		fieldPtr: &d.veryHardSkillModifierOverrideField,
+	})
+}
+
+func (d *sheetSettingsDockable) createAdjustmentFields(panel *unison.Panel) {
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Easy (E) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Easy skills (default: 0). Example: +1 makes Easy skills one level better than standard."),
+		getter:  func() fxp.Int { return d.settings().EasySkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().EasySkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.easySkillModifierAdjustmentField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Average (A) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Average skills (default: -1). Example: +1 makes Average skills equal to Easy."),
+		getter:  func() fxp.Int { return d.settings().AverageSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().AverageSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.averageSkillModifierAdjustmentField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Hard (H) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Hard skills (default: -2). Example: -1 makes Hard skills one level worse."),
+		getter:  func() fxp.Int { return d.settings().HardSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().HardSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.hardSkillModifierAdjustmentField,
+	})
+
+	d.createSkillModifierField(panel, skillModifierFieldConfig{
+		label:   i18n.Text("Very Hard (VH) Adjustment"),
+		tooltip: i18n.Text("Adjustment added to the GURPS default for Very Hard and Wildcard skills (default: -3). Example: -2 makes Very Hard skills two levels worse."),
+		getter:  func() fxp.Int { return d.settings().VeryHardSkillModifierAdjustment },
+		setter:  func(value fxp.Int) { d.settings().VeryHardSkillModifierAdjustment = value; d.syncSheet(false) },
+		fieldPtr: &d.veryHardSkillModifierAdjustmentField,
+	})
+}
+
+func (d *sheetSettingsDockable) updateSkillModifierFieldsVisibility() {
+	useOverrides := d.settings().UseSkillModifierAdjustments
+	if d.skillModifierOverridePanel != nil && d.skillModifierAdjustmentPanel != nil {
+		parent := d.skillModifierOverridePanel.Parent()
+		if parent != nil {
+			// Remove both panels
+			d.skillModifierOverridePanel.RemoveFromParent()
+			d.skillModifierAdjustmentPanel.RemoveFromParent()
+			// Add back the appropriate one
+			// useOverrides=true means show override panel, useOverrides=false means show adjustment panel (default)
+			if useOverrides {
+				parent.AddChild(d.skillModifierOverridePanel)
+			} else {
+				parent.AddChild(d.skillModifierAdjustmentPanel)
+			}
+			parent.MarkForLayoutRecursivelyUpward()
+			parent.MarkForRedraw()
+		}
+	}
+}
+
+func (d *sheetSettingsDockable) createDodgeCustomization(content *unison.Panel) {
+	s := d.settings()
+	panel := unison.NewPanel()
+	panel.SetLayout(&unison.FlexLayout{
+		Columns:  1,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	panel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	d.createHeader(panel, i18n.Text("Dodge Calculation Customization"), 1)
+
+	d.useBasicMoveForDodge = d.addCheckBox(panel, i18n.Text("Use Basic Move instead of Basic Speed for dodge base"),
+		s.UseBasicMoveForDodge, func() {
+			d.settings().UseBasicMoveForDodge = d.useBasicMoveForDodge.State == check.On
+			d.syncSheet(false)
+		})
+	d.useBasicMoveForDodge.Tooltip = newWrappedTooltip(i18n.Text("When checked, dodge is calculated from Basic Move instead of Basic Speed. Standard GURPS 4E uses Basic Speed."))
+
+	d.includeDodgeFlatBonus = d.addCheckBox(panel, i18n.Text("Include flat +3 bonus in dodge calculation"),
+		s.IncludeDodgeFlatBonus, func() {
+			d.settings().IncludeDodgeFlatBonus = d.includeDodgeFlatBonus.State == check.On
+			d.syncSheet(false)
+		})
+	d.includeDodgeFlatBonus.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds a flat +3 to dodge (standard GURPS 4E). When unchecked, removes this bonus (GURPS 3E style)."))
+
+	d.includePDArmor = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from armor"),
+		s.IncludePDArmor, func() {
+			d.settings().IncludePDArmor = d.includePDArmor.State == check.On
+			d.syncSheet(false)
+		})
+	d.includePDArmor.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped armor to dodge (GURPS 3E style)."))
+
+	d.includePDShields = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from shields"),
+		s.IncludePDShields, func() {
+			d.settings().IncludePDShields = d.includePDShields.State == check.On
+			d.syncSheet(false)
+		})
+	d.includePDShields.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped shields to dodge (GURPS 3E style)."))
+
 	content.AddChild(panel)
 }
 
@@ -499,6 +726,10 @@ func (d *sheetSettingsDockable) sync() {
 	d.useHalfStatDefaults.State = check.FromBool(s.UseHalfStatDefaults)
 	d.useModifyDicePlusAdds.State = check.FromBool(s.UseModifyingDicePlusAdds)
 	d.excludeUnspentPointsFromTotal.State = check.FromBool(s.ExcludeUnspentPointsFromTotal)
+	if d.useSkillModifierAdjustments != nil {
+		d.useSkillModifierAdjustments.State = check.FromBool(s.UseSkillModifierAdjustments)
+		d.updateSkillModifierFieldsVisibility()
+	}
 	d.lengthUnitsPopup.Select(s.DefaultLengthUnits)
 	d.weightUnitsPopup.Select(s.DefaultWeightUnits)
 	d.userDescDisplayPopup.Select(s.UserDescriptionDisplay)
@@ -512,6 +743,22 @@ func (d *sheetSettingsDockable) sync() {
 	d.bottomMarginField.SetText(s.Page.BottomMargin.String())
 	d.rightMarginField.SetText(s.Page.RightMargin.String())
 	d.blockLayoutField.SetText(s.BlockLayout.String())
+	if d.easySkillModifierOverrideField != nil {
+		d.easySkillModifierOverrideField.Sync()
+		d.averageSkillModifierOverrideField.Sync()
+		d.hardSkillModifierOverrideField.Sync()
+		d.veryHardSkillModifierOverrideField.Sync()
+		d.easySkillModifierAdjustmentField.Sync()
+		d.averageSkillModifierAdjustmentField.Sync()
+		d.hardSkillModifierAdjustmentField.Sync()
+		d.veryHardSkillModifierAdjustmentField.Sync()
+	}
+	if d.useBasicMoveForDodge != nil {
+		d.useBasicMoveForDodge.State = check.FromBool(s.UseBasicMoveForDodge)
+		d.includeDodgeFlatBonus.State = check.FromBool(s.IncludeDodgeFlatBonus)
+		d.includePDArmor.State = check.FromBool(s.IncludePDArmor)
+		d.includePDShields.State = check.FromBool(s.IncludePDShields)
+	}
 	d.MarkForRedraw()
 }
 

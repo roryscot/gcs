@@ -1062,9 +1062,32 @@ func (e *Entity) Dodge(enc encumbrance.Level) int {
 	if e.ResolveAttribute(DodgeID) != nil {
 		dodge = e.ResolveAttributeCurrent(DodgeID)
 	} else {
-		dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0) + fxp.Three
+		settings := e.SheetSettings
+		if settings == nil {
+			// Fall back to GURPS 4E defaults if settings are nil
+			dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0) + fxp.Three
+		} else {
+			// Use BasicMove or BasicSpeed based on settings
+			if settings.UseBasicMoveForDodge {
+				dodge = e.ResolveAttributeCurrent(BasicMoveID).Max(0)
+			} else {
+				dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0)
+			}
+			// Include flat +3 bonus if enabled
+			if settings.IncludeDodgeFlatBonus {
+				dodge += fxp.Three
+			}
+		}
 	}
 	dodge += e.DodgeBonus
+	// Add PD from armor if enabled
+	if e.SheetSettings != nil && e.SheetSettings.IncludePDArmor {
+		dodge += e.PassiveDefenseFromArmor()
+	}
+	// Add PD from shields if enabled
+	if e.SheetSettings != nil && e.SheetSettings.IncludePDShields {
+		dodge += e.PassiveDefenseFromShields()
+	}
 	divisor := 2 * min(CountThresholdOpMet(threshold.HalveDodge, e.Attributes), 2)
 	if divisor > 0 {
 		dodge = dodge.Div(fxp.FromInteger(divisor)).Ceil()
@@ -1098,6 +1121,40 @@ func (e *Entity) EncumbranceLevel(forSkills bool) encumbrance.Level {
 		e.encumbranceLevelCache = encumbrance.ExtraHeavy
 	}
 	return encumbrance.ExtraHeavy
+}
+
+// PassiveDefenseFromArmor returns the total Passive Defense from equipped armor.
+//
+// NOTE: This is currently a placeholder implementation that always returns 0.
+// The UI allows enabling PD from armor, but this feature is not yet fully implemented.
+// When PD is properly implemented as a feature type, this method should be updated
+// to calculate PD from equipped armor items.
+//
+// TODO: Implement proper PD calculation from armor when PD features are added to the system.
+func (e *Entity) PassiveDefenseFromArmor() fxp.Int {
+	// Placeholder implementation - always returns 0
+	// This method structure is in place for future PD feature implementation
+	var total fxp.Int
+	// TODO: When PD is implemented, iterate through e.CarriedEquipment and sum PD values
+	// from equipped armor items that have PD features
+	return total.Floor()
+}
+
+// PassiveDefenseFromShields returns the total Passive Defense from equipped shields.
+//
+// NOTE: This is currently a placeholder implementation that always returns 0.
+// The UI allows enabling PD from shields, but this feature is not yet fully implemented.
+// When PD is properly implemented as a feature type, this method should be updated
+// to calculate PD from equipped shield items.
+//
+// TODO: Implement proper PD calculation from shields when PD features are added to the system.
+func (e *Entity) PassiveDefenseFromShields() fxp.Int {
+	// Placeholder implementation - always returns 0
+	// This method structure is in place for future PD feature implementation
+	var total fxp.Int
+	// TODO: When PD is implemented, iterate through e.CarriedEquipment and sum PD values
+	// from equipped shield items that have PD features
+	return total.Floor()
 }
 
 // WeightUnit returns the weight unit that should be used for display.

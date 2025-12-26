@@ -56,6 +56,19 @@ type SheetSettingsData struct {
 	ExcludeUnspentPointsFromTotal bool               `json:"exclude_unspent_points_from_total,omitzero"`
 	ShowLiftingSTDamage           bool               `json:"show_lifting_st_damage,omitzero"`
 	ShowIQBasedDamage             bool               `json:"show_iq_based_damage,omitzero"`
+	UseSkillModifierAdjustments   bool               `json:"use_skill_modifier_adjustments,omitzero"`
+	EasySkillModifierOverride             fxp.Int            `json:"easy_skill_modifier_override,omitzero"`
+	AverageSkillModifierOverride          fxp.Int            `json:"average_skill_modifier_override,omitzero"`
+	HardSkillModifierOverride             fxp.Int            `json:"hard_skill_modifier_override,omitzero"`
+	VeryHardSkillModifierOverride         fxp.Int            `json:"very_hard_skill_modifier_override,omitzero"`
+	EasySkillModifierAdjustment          fxp.Int            `json:"easy_skill_modifier_adjustment,omitzero"`
+	AverageSkillModifierAdjustment       fxp.Int            `json:"average_skill_modifier_adjustment,omitzero"`
+	HardSkillModifierAdjustment          fxp.Int            `json:"hard_skill_modifier_adjustment,omitzero"`
+	VeryHardSkillModifierAdjustment      fxp.Int            `json:"very_hard_skill_modifier_adjustment,omitzero"`
+	UseBasicMoveForDodge                 bool               `json:"use_basic_move_for_dodge,omitzero"`
+	IncludeDodgeFlatBonus                bool               `json:"include_dodge_flat_bonus,omitzero"`
+	IncludePDArmor                       bool               `json:"include_pd_armor,omitzero"`
+	IncludePDShields                     bool               `json:"include_pd_shields,omitzero"`
 }
 
 // SheetSettings holds sheet settings.
@@ -88,6 +101,11 @@ func FactorySheetSettings() *SheetSettings {
 			NotesDisplay:           display.Inline,
 			SkillLevelAdjDisplay:   display.Tooltip,
 			ShowSpellAdj:           true,
+			// GURPS 4E defaults: Use Basic Speed, include flat +3, no PD
+			UseBasicMoveForDodge:  false,
+			IncludeDodgeFlatBonus: true,
+			IncludePDArmor:        false,
+			IncludePDShields:       false,
 		},
 	}
 }
@@ -137,6 +155,24 @@ func (s *SheetSettings) EnsureValidity() {
 	s.ModifiersDisplay = s.ModifiersDisplay.EnsureValid()
 	s.NotesDisplay = s.NotesDisplay.EnsureValid()
 	s.SkillLevelAdjDisplay = s.SkillLevelAdjDisplay.EnsureValid()
+	// Ensure GURPS 4E defaults for dodge calculation fields
+	// This handles backward compatibility for character sheets created before dodge customization was added.
+	// We use a conservative heuristic: only set defaults if BOTH dodge fields AND skill modifier fields
+	// are at their zero values, which strongly indicates an old character sheet where these fields
+	// were never present in the JSON (and thus defaulted to zero values).
+	// This avoids incorrectly setting defaults if a user explicitly sets all dodge fields to false
+	// in a new character sheet (which would be very unusual anyway).
+	dodgeFieldsAtDefaults := !s.IncludeDodgeFlatBonus && !s.UseBasicMoveForDodge && !s.IncludePDArmor && !s.IncludePDShields
+	skillModifierFieldsAtDefaults := !s.UseSkillModifierAdjustments &&
+		s.EasySkillModifierOverride == 0 && s.AverageSkillModifierOverride == 0 &&
+		s.HardSkillModifierOverride == 0 && s.VeryHardSkillModifierOverride == 0 &&
+		s.EasySkillModifierAdjustment == 0 && s.AverageSkillModifierAdjustment == 0 &&
+		s.HardSkillModifierAdjustment == 0 && s.VeryHardSkillModifierAdjustment == 0
+	if dodgeFieldsAtDefaults && skillModifierFieldsAtDefaults {
+		// Both feature sets at zero values - very likely an old character sheet, set GURPS 4E defaults
+		s.IncludeDodgeFlatBonus = true // GURPS 4E includes flat +3 bonus
+		// Other fields are already false, which matches GURPS 4E defaults
+	}
 }
 
 // MarshalJSONTo implements json.MarshalerTo.
