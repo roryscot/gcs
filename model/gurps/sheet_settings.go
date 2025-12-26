@@ -65,6 +65,10 @@ type SheetSettingsData struct {
 	AverageSkillModifierAdjustment       fxp.Int            `json:"average_skill_modifier_adjustment,omitzero"`
 	HardSkillModifierAdjustment          fxp.Int            `json:"hard_skill_modifier_adjustment,omitzero"`
 	VeryHardSkillModifierAdjustment      fxp.Int            `json:"very_hard_skill_modifier_adjustment,omitzero"`
+	UseBasicMoveForDodge                 bool               `json:"use_basic_move_for_dodge,omitzero"`
+	IncludeDodgeFlatBonus                bool               `json:"include_dodge_flat_bonus,omitzero"`
+	IncludePDArmor                       bool               `json:"include_pd_armor,omitzero"`
+	IncludePDShields                     bool               `json:"include_pd_shields,omitzero"`
 }
 
 // SheetSettings holds sheet settings.
@@ -97,6 +101,11 @@ func FactorySheetSettings() *SheetSettings {
 			NotesDisplay:           display.Inline,
 			SkillLevelAdjDisplay:   display.Tooltip,
 			ShowSpellAdj:           true,
+			// GURPS 4E defaults: Use Basic Speed, include flat +3, no PD
+			UseBasicMoveForDodge:  false,
+			IncludeDodgeFlatBonus: true,
+			IncludePDArmor:        false,
+			IncludePDShields:       false,
 		},
 	}
 }

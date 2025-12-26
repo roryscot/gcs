@@ -1062,9 +1062,27 @@ func (e *Entity) Dodge(enc encumbrance.Level) int {
 	if e.ResolveAttribute(DodgeID) != nil {
 		dodge = e.ResolveAttributeCurrent(DodgeID)
 	} else {
-		dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0) + fxp.Three
+		settings := e.SheetSettings
+		// Use BasicMove or BasicSpeed based on settings
+		if settings.UseBasicMoveForDodge {
+			dodge = e.ResolveAttributeCurrent(BasicMoveID).Max(0)
+		} else {
+			dodge = e.ResolveAttributeCurrent(BasicSpeedID).Max(0)
+		}
+		// Include flat +3 bonus if enabled
+		if settings.IncludeDodgeFlatBonus {
+			dodge += fxp.Three
+		}
 	}
 	dodge += e.DodgeBonus
+	// Add PD from armor if enabled
+	if e.SheetSettings.IncludePDArmor {
+		dodge += e.PassiveDefenseFromArmor()
+	}
+	// Add PD from shields if enabled
+	if e.SheetSettings.IncludePDShields {
+		dodge += e.PassiveDefenseFromShields()
+	}
 	divisor := 2 * min(CountThresholdOpMet(threshold.HalveDodge, e.Attributes), 2)
 	if divisor > 0 {
 		dodge = dodge.Div(fxp.FromInteger(divisor)).Ceil()
@@ -1098,6 +1116,52 @@ func (e *Entity) EncumbranceLevel(forSkills bool) encumbrance.Level {
 		e.encumbranceLevelCache = encumbrance.ExtraHeavy
 	}
 	return encumbrance.ExtraHeavy
+}
+
+// PassiveDefenseFromArmor returns the total Passive Defense from equipped armor.
+// This is a placeholder that can be enhanced when PD features are properly implemented.
+func (e *Entity) PassiveDefenseFromArmor() fxp.Int {
+	var total fxp.Int
+	// Look for DR bonuses with "PD" specialization from armor
+	// For now, this is a placeholder - can be enhanced when PD is added as a feature type
+	for _, eqp := range e.CarriedEquipment {
+		if !eqp.ReallyEquipped() {
+			continue
+		}
+		// Check if this equipment has DR bonuses that might represent PD
+		// This is a simplified approach - can be enhanced with proper PD features
+		for _, f := range eqp.FeatureList() {
+			if drBonus, ok := f.(*DRBonus); ok {
+				// If PD is added as a feature type, check for it here
+				// For now, we'll need to add PD as a feature or use tags to identify PD
+				_ = drBonus // Placeholder
+			}
+		}
+	}
+	return total.Floor()
+}
+
+// PassiveDefenseFromShields returns the total Passive Defense from equipped shields.
+// This is a placeholder that can be enhanced when PD features are properly implemented.
+func (e *Entity) PassiveDefenseFromShields() fxp.Int {
+	var total fxp.Int
+	// Look for DR bonuses with "PD" specialization from shields
+	// For now, this is a placeholder - can be enhanced when PD is added as a feature type
+	for _, eqp := range e.CarriedEquipment {
+		if !eqp.ReallyEquipped() {
+			continue
+		}
+		// Check if this equipment is a shield (could use tags or other identification)
+		// This is a simplified approach - can be enhanced with proper PD features
+		for _, f := range eqp.FeatureList() {
+			if drBonus, ok := f.(*DRBonus); ok {
+				// If PD is added as a feature type, check for it here
+				// For now, we'll need to add PD as a feature or use tags to identify PD
+				_ = drBonus // Placeholder
+			}
+		}
+	}
+	return total.Floor()
 }
 
 // WeightUnit returns the weight unit that should be used for display.

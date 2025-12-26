@@ -78,6 +78,10 @@ type sheetSettingsDockable struct {
 	averageSkillModifierAdjustmentField       *DecimalField
 	hardSkillModifierAdjustmentField          *DecimalField
 	veryHardSkillModifierAdjustmentField      *DecimalField
+	useBasicMoveForDodge                      *unison.CheckBox
+	includeDodgeFlatBonus                     *unison.CheckBox
+	includePDArmor                            *unison.CheckBox
+	includePDShields                          *unison.CheckBox
 }
 
 // ShowSheetSettings the Sheet Settings. Pass in nil to edit the defaults or a sheet to edit the sheet's.
@@ -132,6 +136,7 @@ func (d *sheetSettingsDockable) initContent(content *unison.Panel) {
 	d.createDamageProgression(content)
 	d.createOptions(content)
 	d.createSkillDifficultyModifiers(content)
+	d.createDodgeCustomization(content)
 	d.createUnitsOfMeasurement(content)
 	d.createWhereToDisplay(content)
 	d.createPageSettings(content)
@@ -427,6 +432,48 @@ func (d *sheetSettingsDockable) updateSkillModifierFieldsVisibility() {
 	}
 }
 
+func (d *sheetSettingsDockable) createDodgeCustomization(content *unison.Panel) {
+	s := d.settings()
+	panel := unison.NewPanel()
+	panel.SetLayout(&unison.FlexLayout{
+		Columns:  1,
+		HSpacing: unison.StdHSpacing,
+		VSpacing: unison.StdVSpacing,
+	})
+	panel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
+	d.createHeader(panel, i18n.Text("Dodge Calculation Customization"), 1)
+
+	d.useBasicMoveForDodge = d.addCheckBox(panel, i18n.Text("Use Basic Move instead of Basic Speed for dodge base"),
+		s.UseBasicMoveForDodge, func() {
+			d.settings().UseBasicMoveForDodge = d.useBasicMoveForDodge.State == check.On
+			d.syncSheet(false)
+		})
+	d.useBasicMoveForDodge.Tooltip = newWrappedTooltip(i18n.Text("When checked, dodge is calculated from Basic Move instead of Basic Speed. Standard GURPS 4E uses Basic Speed."))
+
+	d.includeDodgeFlatBonus = d.addCheckBox(panel, i18n.Text("Include flat +3 bonus in dodge calculation"),
+		s.IncludeDodgeFlatBonus, func() {
+			d.settings().IncludeDodgeFlatBonus = d.includeDodgeFlatBonus.State == check.On
+			d.syncSheet(false)
+		})
+	d.includeDodgeFlatBonus.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds a flat +3 to dodge (standard GURPS 4E). When unchecked, removes this bonus (GURPS 3E style)."))
+
+	d.includePDArmor = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from armor"),
+		s.IncludePDArmor, func() {
+			d.settings().IncludePDArmor = d.includePDArmor.State == check.On
+			d.syncSheet(false)
+		})
+	d.includePDArmor.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped armor to dodge (GURPS 3E style)."))
+
+	d.includePDShields = d.addCheckBox(panel, i18n.Text("Include Passive Defense (PD) from shields"),
+		s.IncludePDShields, func() {
+			d.settings().IncludePDShields = d.includePDShields.State == check.On
+			d.syncSheet(false)
+		})
+	d.includePDShields.Tooltip = newWrappedTooltip(i18n.Text("When checked, adds Passive Defense from equipped shields to dodge (GURPS 3E style)."))
+
+	content.AddChild(panel)
+}
+
 func (d *sheetSettingsDockable) addCheckBox(panel *unison.Panel, title string, checked bool, onClick func()) *unison.CheckBox {
 	checkbox := unison.NewCheckBox()
 	checkbox.SetTitle(title)
@@ -716,6 +763,12 @@ func (d *sheetSettingsDockable) sync() {
 		d.averageSkillModifierAdjustmentField.Sync()
 		d.hardSkillModifierAdjustmentField.Sync()
 		d.veryHardSkillModifierAdjustmentField.Sync()
+	}
+	if d.useBasicMoveForDodge != nil {
+		d.useBasicMoveForDodge.State = check.FromBool(s.UseBasicMoveForDodge)
+		d.includeDodgeFlatBonus.State = check.FromBool(s.IncludeDodgeFlatBonus)
+		d.includePDArmor.State = check.FromBool(s.IncludePDArmor)
+		d.includePDShields.State = check.FromBool(s.IncludePDShields)
 	}
 	d.MarkForRedraw()
 }
