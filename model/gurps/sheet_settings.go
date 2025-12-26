@@ -56,6 +56,15 @@ type SheetSettingsData struct {
 	ExcludeUnspentPointsFromTotal bool               `json:"exclude_unspent_points_from_total,omitzero"`
 	ShowLiftingSTDamage           bool               `json:"show_lifting_st_damage,omitzero"`
 	ShowIQBasedDamage             bool               `json:"show_iq_based_damage,omitzero"`
+	UseSkillModifierAdjustments   bool               `json:"use_skill_modifier_adjustments,omitzero"`
+	EasySkillModifierOverride             fxp.Int            `json:"easy_skill_modifier_override,omitzero"`
+	AverageSkillModifierOverride          fxp.Int            `json:"average_skill_modifier_override,omitzero"`
+	HardSkillModifierOverride             fxp.Int            `json:"hard_skill_modifier_override,omitzero"`
+	VeryHardSkillModifierOverride         fxp.Int            `json:"very_hard_skill_modifier_override,omitzero"`
+	EasySkillModifierAdjustment          fxp.Int            `json:"easy_skill_modifier_adjustment,omitzero"`
+	AverageSkillModifierAdjustment       fxp.Int            `json:"average_skill_modifier_adjustment,omitzero"`
+	HardSkillModifierAdjustment          fxp.Int            `json:"hard_skill_modifier_adjustment,omitzero"`
+	VeryHardSkillModifierAdjustment      fxp.Int            `json:"very_hard_skill_modifier_adjustment,omitzero"`
 }
 
 // SheetSettings holds sheet settings.
