@@ -259,14 +259,14 @@ func (d *sheetSettingsDockable) createSkillDifficultyModifiers(content *unison.P
 	panel.SetLayoutData(&unison.FlexLayoutData{HAlign: align.Fill})
 	d.createHeader(panel, i18n.Text("Skill Difficulty Modifiers"), 1)
 
-	// Toggle between Override and Adjustment modes
-	d.useSkillModifierAdjustments = d.addCheckBox(panel, i18n.Text("Use adjustments instead of overrides"),
+	// Toggle between Adjustment (default) and Override modes
+	d.useSkillModifierAdjustments = d.addCheckBox(panel, i18n.Text("Use overrides instead of adjustments"),
 		s.UseSkillModifierAdjustments, func() {
 			d.settings().UseSkillModifierAdjustments = d.useSkillModifierAdjustments.State == check.On
 			d.updateSkillModifierFieldsVisibility()
 			d.syncSheet(false)
 		})
-	d.useSkillModifierAdjustments.Tooltip = newWrappedTooltip(i18n.Text("When checked, values are added to GURPS defaults. When unchecked, values completely replace the defaults."))
+	d.useSkillModifierAdjustments.Tooltip = newWrappedTooltip(i18n.Text("When checked, values completely replace GURPS defaults. When unchecked (default), values are added to the defaults."))
 
 	// Create wrapper panels for override and adjustment fields
 	d.skillModifierOverridePanel = unison.NewPanel()
@@ -407,7 +407,7 @@ func (d *sheetSettingsDockable) createAdjustmentFields(panel *unison.Panel) {
 }
 
 func (d *sheetSettingsDockable) updateSkillModifierFieldsVisibility() {
-	useAdjustments := d.settings().UseSkillModifierAdjustments
+	useOverrides := d.settings().UseSkillModifierAdjustments
 	if d.skillModifierOverridePanel != nil && d.skillModifierAdjustmentPanel != nil {
 		parent := d.skillModifierOverridePanel.Parent()
 		if parent != nil {
@@ -415,10 +415,11 @@ func (d *sheetSettingsDockable) updateSkillModifierFieldsVisibility() {
 			d.skillModifierOverridePanel.RemoveFromParent()
 			d.skillModifierAdjustmentPanel.RemoveFromParent()
 			// Add back the appropriate one
-			if useAdjustments {
-				parent.AddChild(d.skillModifierAdjustmentPanel)
-			} else {
+			// useOverrides=true means show override panel, useOverrides=false means show adjustment panel (default)
+			if useOverrides {
 				parent.AddChild(d.skillModifierOverridePanel)
+			} else {
+				parent.AddChild(d.skillModifierAdjustmentPanel)
 			}
 			parent.MarkForLayoutRecursivelyUpward()
 			parent.MarkForRedraw()

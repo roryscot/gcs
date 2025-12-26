@@ -748,7 +748,7 @@ func (s *Skill) CalculateLevel(excludes map[string]bool) Level {
 }
 
 // BaseRelativeLevelWithSettings returns the base relative skill level at 0 points, using custom settings if provided.
-// If UseSkillModifierAdjustments is true, it adds adjustments to the defaults. Otherwise, it uses overrides if set.
+// By default (UseSkillModifierAdjustments false), it adds adjustments to the defaults. If UseSkillModifierAdjustments is true (toggle checked), it uses overrides if set.
 func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSettings) fxp.Int {
 	defaultValue := diffLevel.BaseRelativeLevel()
 	if settings == nil {
@@ -756,19 +756,7 @@ func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSe
 	}
 	
 	if settings.UseSkillModifierAdjustments {
-		// Adjustment mode: add to defaults
-		switch diffLevel {
-		case difficulty.Easy:
-			return defaultValue + settings.EasySkillModifierAdjustment
-		case difficulty.Average:
-			return defaultValue + settings.AverageSkillModifierAdjustment
-		case difficulty.Hard:
-			return defaultValue + settings.HardSkillModifierAdjustment
-		case difficulty.VeryHard, difficulty.Wildcard:
-			return defaultValue + settings.VeryHardSkillModifierAdjustment
-		}
-	} else {
-		// Override mode: replace defaults
+		// Override mode: replace defaults (when toggle is checked)
 		switch diffLevel {
 		case difficulty.Easy:
 			// For Easy, default is 0. If override is explicitly set to non-zero, use that. Otherwise use default 0.
@@ -804,9 +792,23 @@ func BaseRelativeLevelWithSettings(diffLevel difficulty.Level, settings *SheetSe
 			}
 			// Matches default, use default
 		}
+		// Fall back to defaults if no override was applied
+		return defaultValue
+	} else {
+		// Adjustment mode: add to defaults (default behavior)
+		switch diffLevel {
+		case difficulty.Easy:
+			return defaultValue + settings.EasySkillModifierAdjustment
+		case difficulty.Average:
+			return defaultValue + settings.AverageSkillModifierAdjustment
+		case difficulty.Hard:
+			return defaultValue + settings.HardSkillModifierAdjustment
+		case difficulty.VeryHard, difficulty.Wildcard:
+			return defaultValue + settings.VeryHardSkillModifierAdjustment
+		default:
+			return defaultValue
+		}
 	}
-	// Fall back to defaults
-	return defaultValue
 }
 
 // CalculateSkillLevel returns the calculated level for a skill.
